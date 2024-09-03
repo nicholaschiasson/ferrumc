@@ -14,6 +14,8 @@ use crate::state::GlobalState;
 use crate::utils::components::player::Player;
 use crate::utils::encoding::position::Position;
 use crate::utils::prelude::*;
+const CHUNK_RADIUS: i32 = 16;
+const INTERVAL_MS: u64 = 500;
 
 #[derive(AutoGenName)]
 pub struct ChunkSender;
@@ -21,7 +23,7 @@ pub struct ChunkSender;
 #[async_trait]
 impl System for ChunkSender {
     async fn run(&self, state: GlobalState) {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(INTERVAL_MS));
         loop {
             interval.tick().await;
 
@@ -80,7 +82,6 @@ impl ChunkSender {
     ) -> Result<()> {
         let mut write_guard = conn.write().await;
 
-        const CHUNK_RADIUS: i32 = 16;
 
         for x in -CHUNK_RADIUS..=CHUNK_RADIUS {
             for z in -CHUNK_RADIUS..=CHUNK_RADIUS {

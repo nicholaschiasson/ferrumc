@@ -108,7 +108,7 @@ impl ChunkDataAndUpdateLight {
             packet_id: VarInt::from(0x24),
             chunk_x,
             chunk_z,
-            heightmaps: create_basic_chunk(chunk_x, chunk_z).heightmaps.unwrap(),
+            heightmaps: chunk.heightmaps.expect("Chunk is missing heightmaps"),
             data: data.into_inner(),
             block_entities_count: VarInt::from(0),
             block_entities: Vec::new(),
