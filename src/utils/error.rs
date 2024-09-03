@@ -57,6 +57,8 @@ pub enum Error {
 
     #[error("Database error: {0}")]
     DatabaseError(String),
+    #[error("RockDB error: {0}")]
+    RocksDBError(#[from] rocksdb::Error),
 
     #[error("Invalid directive: {0}")]
     InvalidDirective(String),

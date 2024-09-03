@@ -1,3 +1,4 @@
+use rocksdb::{ColumnFamilyDescriptor, Options};
 use tracing::{debug, trace, warn};
 
 use crate::database::Database;
@@ -7,20 +8,42 @@ use crate::world::chunkformat::Chunk;
 
 impl Database {
     pub async fn insert_chunk(&self, value: Chunk, dimension: String) -> Result<bool, Error> {
-        let db = self.db.clone();
+        let mut db = self.db.clone();
         let result = tokio::task::spawn_blocking(move || {
             let key = hash((value.x_pos, value.z_pos));
             let encoded = bincode::encode_to_vec(value, bincode::config::standard())
                 .expect("Failed to encode");
-            db.open_tree(format!("chunks/{}", dimension))?
-                .insert(key, encoded)
+
+           /* if !db.cf_handle(&cf_name).is_some() {
+                let mut cf_opts = Options::default();
+                cf_opts.set_max_write_buffer_number(16);
+                db.create_cf(cf_name.clone(), &cf_opts)
+                    .expect("Failed to create CF");
+            }*/
+            let cf_name = format!("chunks/{}", dimension);
+            if db.cf_handle(&cf_name).is_none() {
+                /*let mut cf_opts = Options::default();
+                cf_opts.set_max_write_buffer_number(16);
+                db.create_cf(cf_name.clone(), &cf_opts)
+                    .expect("Failed to create CF");*/
+                panic!("CF for dimension {} not found", dimension);
+            }
+
+            // Get the column family handle
+            let cf_handle = db.cf_handle(&cf_name).expect("CF not found");
+
+            // Insert the key-value pair
+            db.put_cf(cf_handle, key, encoded)
+                .expect("Failed to insert chunk");
         })
-        .await
-        .expect("Failed to join tasks")
-        .expect("Failed to insert chunk");
+        .await;
+
         match result {
-            Some(_) => Ok(true),
-            None => Ok(false),
+            Ok(_) => Ok(false),
+            Err(e) => {
+                warn!("Failed to insert chunk: {}", e);
+                Err(Error::DatabaseError("Failed to insert chunk".to_string()))
+            }
         }
     }
 
@@ -29,77 +52,77 @@ impl Database {
         x: i32,
         z: i32,
         dimension: impl Into<String>,
-    ) -> Result<Option<Chunk>, Error> {
+    ) -> Result<Option<Chunk>, rocksdb::Error> {
         let dimension = dimension.into();
         let db = self.db.clone();
         let result = tokio::task::spawn_blocking(move || {
             let key = hash((x, z));
             trace!("Getting chunk: {}, {}", x, z);
-            let chunk = db
-                .open_tree(format!("chunks/{}", dimension))
-                .unwrap()
-                .get(key)
-                .unwrap();
-            match chunk {
-                Some(chunk) => {
-                    let chunk = chunk.as_ref();
-                    let (chunk, len) =
-                        bincode::decode_from_slice(chunk, bincode::config::standard()).unwrap();
+
+            let cf_name = format!("chunks/{}", dimension);
+            let cf_handle = match db.cf_handle(&cf_name) {
+                Some(handle) => handle,
+                None => return Ok(None), // CF doesn't exist, so chunk doesn't exist
+            };
+
+            match db.get_cf(cf_handle, key)? {
+                Some(chunk_data) => {
+                    let (chunk, len) = bincode::decode_from_slice(&chunk_data, bincode::config::standard())
+                        .expect("Failed to decode chunk data");
                     trace!("Got chunk: {} {}, {} bytes long", x, z, len);
-                    Some(chunk)
+                    Ok(Some(chunk))
                 }
                 None => {
                     debug!("Could not find chunk {}, {}", x, z);
-                    None
+                    Ok(None)
                 }
             }
         })
-        .await
-        .expect("Failed to join tasks");
+            .await
+            .expect("Failed to join tasks")?;
         Ok(result)
     }
 
-    pub async fn chunk_exists(&self, x: i32, z: i32, dimension: String) -> Result<bool, Error> {
+
+    pub async fn chunk_exists(&self, x: i32, z: i32, dimension: String) -> Result<bool, rocksdb::Error> {
         let db = self.db.clone();
         let result = tokio::task::spawn_blocking(move || {
-            let record_name = hash((x, z));
-            db.open_tree(format!("chunks/{}", dimension))
-                .unwrap()
-                .contains_key(record_name)
+            let key = hash((x, z));
+            let cf_name = format!("chunks/{}", dimension);
+
+            if let Some(cf_handle) = db.cf_handle(&cf_name) {
+                db.get_cf(cf_handle, key).map(|opt| opt.is_some())
+            } else {
+                Ok(false) // If the CF doesn't exist, the chunk doesn't exist
+            }
         })
-        .await
-        .expect("Failed to join tasks")
-        .expect("Failed to check if chunk exists");
+            .await
+            .expect("Failed to join tasks")?;
         Ok(result)
     }
-
-    pub async fn update_chunk(&self, value: Chunk, dimension: String) -> Result<bool, Error> {
-        let db = self.db.clone();
+    pub async fn update_chunk(&self, value: Chunk, dimension: String) -> Result<bool, rocksdb::Error> {
+        let mut db = self.db.clone();
         let result = tokio::task::spawn_blocking(move || {
-            let (x, z) = (value.x_pos, value.z_pos);
-            let record_name = hash((x, z));
+            let key = hash((value.x_pos, value.z_pos));
             let encoded = bincode::encode_to_vec(value, bincode::config::standard())
                 .expect("Failed to encode");
-            if db
-                .open_tree("chunks")
-                .unwrap()
-                .remove(&record_name)
-                .unwrap()
-                .is_none()
-            {
-                warn!("Attempted to update non-existent chunk: {}, {}", x, z);
+
+            let cf_name = format!("chunks/{}", dimension);
+            if db.cf_handle(&cf_name).is_none() {
+                /*let mut cf_opts = Options::default();
+                cf_opts.set_max_write_buffer_number(16);
+                db.create_cf(cf_name.clone(), &cf_opts)
+                    .expect("Failed to create CF");*/
+                panic!("CF for dimension {} not found", dimension);
             }
-            db.open_tree(format!("chunks/{}", dimension))
-                .unwrap()
-                .insert(record_name, encoded)
+
+            let cf_handle = db.cf_handle(&cf_name).expect("CF not found");
+            db.put_cf(cf_handle, key, encoded)?;
+            Ok(true)
         })
-        .await
-        .expect("Failed to join tasks")
-        .expect("Failed to update chunk");
-        match result {
-            Some(_) => Ok(true),
-            None => Ok(false),
-        }
+            .await
+            .expect("Failed to join tasks")?;
+        Ok(result)
     }
 }
 

@@ -57,7 +57,8 @@ ferrumc_codec = { path = "src/crates/ferurmc_codec" }
 nbt-lib = { path = 'src/crates/nbt-workspace/nbt-lib', features = ["derive"] }
 
 # Database
-sled = { version = "0.34.7", features = ["compression", "zstd"] }
+#sled = { version = "0.34.7", features = ["compression", "zstd"] }
+rocksdb = "0.22.0"
 
 # Misc
 dashmap = "6.0.1"
@@ -70,6 +71,7 @@ rayon = "1.10.0"
 clap = { version = "4.5.11" }
 clap_derive = "4.5.11"
 indicatif = "0.17.8"
+num_cpus = "1.16.0"
 
 [build-dependencies]
 # Build
