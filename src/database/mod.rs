@@ -2,7 +2,6 @@ use crate::utils::config::get_global_config;
 use crate::utils::error::Error;
 use byteorder::LE;
 use deepsize::DeepSizeOf;
-use ferrumc_macros::profile;
 use futures::FutureExt;
 use heed::types::{Bytes, U64};
 use heed::{Env as LMDBDatabase, Env, EnvFlags, EnvOpenOptions, MdbError};
@@ -56,7 +55,6 @@ fn evict_chunk(_key: Arc<u64>, value: Chunk, cause: RemovalCause) -> ListenerFut
 }
 
 // Start database
-#[profile("database/start")]
 pub async fn start_database() -> Result<Database, Error> {
     // Parse root directory from environment variable
     let root = if env::var("FERRUMC_ROOT").is_ok() {

@@ -7,6 +7,7 @@ use ecs::world::World;
 use net::ConnectionList;
 use state::{GlobalState, ServerState};
 use tokio::net::TcpListener;
+use ferrumc_macros::profile;
 use utils::prelude::*;
 
 extern crate core;
@@ -24,6 +25,7 @@ pub mod database;
 pub mod state;
 pub mod world;
 
+#[profile("create_state")]
 pub async fn create_state(tcp_listener: TcpListener) -> Result<GlobalState> {
     Ok(Arc::new(ServerState {
         world: Arc::new(World::new()),
