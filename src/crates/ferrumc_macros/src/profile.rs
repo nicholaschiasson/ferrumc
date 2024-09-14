@@ -1,6 +1,5 @@
 use proc_macro::{quote, TokenStream};
 use quote::ToTokens;
-use std::str::FromStr;
 
 #[allow(unused_variables)]
 pub(crate) fn profile_fn(attr: TokenStream, item: TokenStream) -> TokenStream {

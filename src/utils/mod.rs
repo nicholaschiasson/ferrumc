@@ -1,5 +1,7 @@
 use crate::utils::constants::DEFAULT_LOG_LEVEL;
 use crate::utils::prelude::*;
+use dashmap::DashMap;
+use lazy_static::lazy_static;
 use tokio::time::Instant;
 use tracing::{error, info, Id, Subscriber};
 use tracing_subscriber::layer::{Context, SubscriberExt};
@@ -18,6 +20,10 @@ pub mod prelude;
 #[derive(Default)]
 struct ProfileLayer;
 
+lazy_static! {
+    static ref DURATION_MAP: DashMap<u64, Instant> = DashMap::new();
+}
+
 impl<S: Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>>
     tracing_subscriber::Layer<S> for ProfileLayer
 {
@@ -28,7 +34,7 @@ impl<S: Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'look
             }
             Some(span) => {
                 if span.name().starts_with("profiler/") {
-                    span.extensions_mut().insert(Instant::now());
+                    DURATION_MAP.insert(span.id().into_u64(), Instant::now());
                 }
             }
         }
@@ -41,9 +47,18 @@ impl<S: Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'look
             }
             Some(span) => {
                 if span.name().starts_with("profiler/") {
-                    let start = span.extensions().get::<Instant>().cloned();
-                    span.extensions_mut().remove::<Instant>();
-                    start
+                    match DURATION_MAP.get(&span.id().into_u64()) {
+                        Some(start) => {
+                            let result = start.clone();
+                            drop(start);
+                            DURATION_MAP.remove(&id.into_u64());
+                            Some(result)
+                        }
+                        None => {
+                            error!("No start time found");
+                            None
+                        }
+                    }
                 } else {
                     None
                 }
