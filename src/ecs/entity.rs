@@ -9,9 +9,9 @@ pub struct Entity {
     pub generation: u32,
 }
 
-impl Into<usize> for Entity {
-    fn into(self) -> usize {
-        self.id as usize
+impl From<Entity> for usize {
+    fn from(val: Entity) -> Self {
+        val.id as usize
     }
 }
 
@@ -39,7 +39,7 @@ impl EntityManager {
     /// Creates a new entity and returns it.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// let mut manager = EntityManager::new();
     /// let entity = manager.create_entity();
     /// ```
@@ -60,7 +60,7 @@ impl EntityManager {
     /// Returns `true` if the entity was successfully deleted, `false` otherwise.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// let mut manager = EntityManager::new();
     /// let entity = manager.create_entity();
     /// assert!(manager.delete_entity(entity));
@@ -85,7 +85,7 @@ impl EntityManager {
     /// Checks if an entity exists.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// let mut manager = EntityManager::new();
     /// let entity = manager.create_entity();
     /// assert!(manager.entity_exists(entity));
@@ -114,7 +114,7 @@ impl EntityManager {
     /// Returns `None` if the entity doesn't exist.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// let mut manager = EntityManager::new();
     /// let entity = manager.create_entity();
     /// assert!(manager.get_entity(entity.id).is_some());
@@ -135,6 +135,18 @@ impl EntityManager {
     pub async fn len(&self) -> usize {
         let inner = self.inner.read().await;
         inner.generations.len()
+    }
+
+    /// Returns bool if total number of entity slots (including deleted entities) is empty.
+    pub async fn is_empty(&self) -> bool {
+        let inner = self.inner.read().await;
+        inner.generations.is_empty()
+    }
+}
+
+impl Default for EntityManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

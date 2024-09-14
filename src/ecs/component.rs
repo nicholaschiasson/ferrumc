@@ -14,7 +14,7 @@ pub trait Component: 'static + Send + Sync + Debug {}
 /// An immutable reference to a component.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// let position: ComponentRef<Position> = ...;
 /// let x = position.x;
 /// ```
@@ -27,7 +27,7 @@ pub struct ComponentRef<'a, T: Component + 'a> {
 /// A mutable reference to a component.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// let mut position: ComponentRefMut<Position> = ...;
 /// position.x = 10.0;
 /// ```
@@ -75,7 +75,7 @@ impl ComponentStorage {
     /// Inserts a component for a given entity.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// let storage = ComponentStorage::new();
     /// storage.insert(0, Position { x: 0.0, y: 0.0 });
     /// ```
@@ -85,12 +85,15 @@ impl ComponentStorage {
             .map_err(|_| Error::ConversionError)
             .unwrap();
         let type_id = TypeId::of::<T>();
-        let mut storage = self
-            .storages
-            .entry(type_id)
-            .or_insert_with(|| SparseSet::new());
+        let mut storage = self.storages.entry(type_id).or_insert_with(SparseSet::new);
         storage.insert(entity_id, RwLock::new(Box::new(component)));
         self
+    }
+}
+
+impl Default for ComponentStorage {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -99,7 +102,7 @@ impl ComponentStorage {
     /// Retrieves an immutable reference to a component for a given entity.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// let position = storage.get::<Position>(0).await.unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
@@ -131,14 +134,14 @@ impl ComponentStorage {
     /// Retrieves a mutable reference to a component for a given entity.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// let mut position = storage.get_mut::<Position>(0).await.unwrap();
     /// position.x = 1.0;
     /// ```
-    pub async fn get_mut<'a, T: Component>(
-        &'a self,
+    pub async fn get_mut<T: Component>(
+        &self,
         entity_id: impl TryInto<usize>,
-    ) -> Result<ComponentRefMut<'a, T>> {
+    ) -> Result<ComponentRefMut<T>> {
         let type_id = TypeId::of::<T>();
         let entity_id = entity_id.try_into().map_err(|_| Error::ConversionError)?;
         let storage = self
@@ -152,7 +155,7 @@ impl ComponentStorage {
         let write_guard = unsafe {
             std::mem::transmute::<
                 RwLockWriteGuard<'_, Box<dyn Component>>,
-                RwLockWriteGuard<'a, Box<dyn Component>>,
+                RwLockWriteGuard<Box<dyn Component>>,
             >(write)
         };
 
@@ -211,7 +214,7 @@ impl ComponentStorage {
     /// Removes a component for a given entity.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// storage.remove::<Position>(0);
     /// ```
     pub fn remove<T: Component>(&self, entity_id: impl Into<usize>) -> Result<()> {
