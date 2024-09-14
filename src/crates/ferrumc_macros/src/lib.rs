@@ -1,3 +1,4 @@
+#![feature(proc_macro_quote)]
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
@@ -7,6 +8,7 @@ mod ecs;
 mod encode;
 mod nbt_decode;
 mod packet;
+mod profile;
 mod utils;
 
 #[proc_macro_derive(NetDecode)]
@@ -23,11 +25,11 @@ pub fn encode_derive(input: TokenStream) -> TokenStream {
 pub fn packet(args: TokenStream, input: TokenStream) -> TokenStream {
     packet::attribute(args, input)
 }
-/*
-#[proc_macro_derive(NBTDecode, attributes(nbtcompound, rename))]
-pub fn nbt_decode_derive(input: TokenStream) -> TokenStream {
-    nbt_decode::decode(input)
-}*/
+
+#[proc_macro_attribute]
+pub fn profile(args: TokenStream, input: TokenStream) -> TokenStream {
+    profile::profile_fn(args, input)
+}
 
 #[proc_macro]
 pub fn bake_packet_registry(input: TokenStream) -> TokenStream {

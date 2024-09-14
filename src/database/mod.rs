@@ -1,5 +1,8 @@
+use crate::utils::config::get_global_config;
+use crate::utils::error::Error;
 use byteorder::LE;
 use deepsize::DeepSizeOf;
+use ferrumc_macros::profile;
 use futures::FutureExt;
 use heed::types::{Bytes, U64};
 use heed::{Env as LMDBDatabase, Env, EnvFlags, EnvOpenOptions, MdbError};
@@ -13,9 +16,6 @@ use std::time::Duration;
 use tokio::fs;
 use tokio::sync::oneshot;
 use tracing::{debug, info, trace, warn};
-
-use crate::utils::config::get_global_config;
-use crate::utils::error::Error;
 
 use crate::world::chunk_format::Chunk;
 pub mod chunks;
@@ -55,7 +55,8 @@ fn evict_chunk(_key: Arc<u64>, value: Chunk, cause: RemovalCause) -> ListenerFut
     .boxed()
 }
 
-/// Start database
+// Start database
+#[profile("database/start")]
 pub async fn start_database() -> Result<Database, Error> {
     // Parse root directory from environment variable
     let root = if env::var("FERRUMC_ROOT").is_ok() {
@@ -183,7 +184,7 @@ where
             *global_size_lock = new_page_size(old_size);
             unsafe { db.resize(*global_size_lock).expect("Unable to resize LMDB environment.") };
 
-            tracing::info!("Successfully resized LMDB page from {} MiB to {} MiB", old_size / 1024usize.pow(2), *global_size_lock / 1024usize.pow(2));
+            info!("Successfully resized LMDB page from {} MiB to {} MiB", old_size / 1024usize.pow(2), *global_size_lock / 1024usize.pow(2));
 
             drop(global_size_lock);
             drop(_resize_guard);
