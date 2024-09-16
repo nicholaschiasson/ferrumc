@@ -9,6 +9,7 @@ use state::{GlobalState, ServerState};
 use tokio::net::TcpListener;
 use ferrumc_macros::profile;
 use utils::prelude::*;
+use crate::events::creation::dispatcher::EventDispatcher;
 
 extern crate core;
 #[macro_use]
@@ -24,6 +25,7 @@ pub mod utils;
 pub mod database;
 pub mod state;
 pub mod world;
+pub mod events;
 
 #[profile("create_state")]
 pub async fn create_state(tcp_listener: TcpListener) -> Result<GlobalState> {
@@ -35,5 +37,6 @@ pub async fn create_state(tcp_listener: TcpListener) -> Result<GlobalState> {
         },
         database: database::start_database().await?,
         server_stream: tcp_listener,
+        event_dispatcher: Arc::new(EventDispatcher::new()),
     }))
 }
