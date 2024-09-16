@@ -14,48 +14,7 @@ pub mod error;
 pub mod hash;
 pub mod impls;
 pub mod prelude;
-
-#[derive(Default)]
-struct ProfileLayer;
-
-impl<S: Subscriber + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>>
-    tracing_subscriber::Layer<S> for ProfileLayer
-{
-    fn on_enter(&self, id: &Id, ctx: Context<'_, S>) {
-        match ctx.span(id) {
-            None => {
-                error!("No span found")
-            }
-            Some(span) => {
-                if span.name().starts_with("profiler/") {
-                    span.extensions_mut().insert(Instant::now());
-                }
-            }
-        }
-    }
-    fn on_exit(&self, id: &Id, ctx: Context<'_, S>) {
-        let instant = match ctx.span(id) {
-            None => {
-                error!("No span found");
-                None
-            }
-            Some(span) => {
-                if span.name().starts_with("profiler/") {
-                    let start = span.extensions().get::<Instant>().cloned();
-                    span.extensions_mut().remove::<Instant>();
-                    start
-                } else {
-                    None
-                }
-            }
-        };
-
-        if let Some(start) = instant {
-            let elapsed = start.elapsed();
-            info!("{} took {:?}", ctx.span(id).unwrap().name(), elapsed);
-        }
-    }
-}
+mod profiler;
 
 /// Sets up the logger. Needs to be run before anything else in order for logging to run.
 pub fn setup_logger() -> Result<()> {
@@ -98,7 +57,7 @@ pub fn setup_logger() -> Result<()> {
         }
     };
 
-    let profile_layer = ProfileLayer::default();
+    let profile_layer = profiler::ProfilerTracingLayer::default();
 
     tracing_subscriber::registry()
         .with(env_filter)
