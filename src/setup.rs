@@ -76,7 +76,7 @@ host = "0.0.0.0"
 # The port to bind to. Default is 25565.
 port = 25565
 # The message displayed in the server list.
-motd = ["A FerrumC server; Absolute precision, power, and perfection."]
+motd = ["A supersonic FerrumC server."]
 # The maximum number of players that can be connected at once.
 max_players = 20
 # How many network updates to process per second per user. 0 means no limit.

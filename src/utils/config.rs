@@ -18,7 +18,7 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u32,
     pub motd: Vec<String>,
-    pub max_players: u32,
+    pub max_players: i32,
     pub network_tick_rate: u32,
     pub database: Database,
     pub world: String,
@@ -71,7 +71,7 @@ impl ServerConfig {
                         .and_then(|settings| settings.try_deserialize().map_err(Error::from))
                 } else {
                     error!("Aborting...");
-                    Err(Error::from(e))
+                    Err(Error::Generic(format!("The config file has a missing field: {}", field)))
                 };
             }
             Err(Error::from(e))
@@ -149,7 +149,7 @@ impl Default for ServerConfig {
             host: DEFAULT_SERVER_HOST.to_string(),
             port: DEFAULT_SERVER_PORT,
             motd: vec![DEFAULT_MOTD.to_string()],
-            max_players: DEFAULT_MAX_PLAYERS,
+            max_players: DEFAULT_MAX_PLAYERS as i32,
             network_tick_rate: 0,
             world: "world".to_string(),
             database: Database {
