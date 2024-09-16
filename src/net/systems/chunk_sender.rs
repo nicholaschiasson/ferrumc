@@ -142,32 +142,36 @@ impl ChunkSender {
 
         'x: for x in -chunk_radius..=chunk_radius {
             for z in -chunk_radius..=chunk_radius {
-                let Ok(packet) =
-                    ChunkDataAndUpdateLight::new(state.clone(), (pos_x >> 4) + x, (pos_z >> 4) + z)
-                        .await
-                else {
+                let pos = ((pos_x >> 4) + x, (pos_z >> 4) + z);
+                let chunk_exists = state.database.chunk_exists(pos.0, pos.1, "overworld".to_string()).await?;
+                if !chunk_exists {
                     continue;
-                };
+                }
                 let arc_clone = Arc::clone(&conn);
-                tokio::spawn(async move {
-                    if let Err(e) = arc_clone.send_packet(packet).await {
-                        warn!("Failed to send chunk to player: {} ; Cancelling.", e);
-                    }
-                });
+                let state = state.clone();
+                async fn get_and_send_chunk(state: GlobalState, pos: (i32, i32), conn: Arc<RwLock<Connection>>) -> Result<()> {
+                    let packet = ChunkDataAndUpdateLight::new(state, pos.0, pos.1).await?;
+                    conn.send_packet(packet).await?;
+                    Ok(())
+                }
+
+                if let Err(e) = get_and_send_chunk(state.clone(), pos, arc_clone).await {
+                    warn!("Failed to send chunk to player: {}", e);
+                }
             }
         }
 
-        // check the size of a single chunk and multiply it by the number of chunks sent
-        let sample_chunk =
-            ChunkDataAndUpdateLight::new(state.clone(), pos_x >> 4, pos_z >> 4).await?;
-        let mut vec = vec![];
-        let encode_option = match conn.read().await.metadata.compressed {
-            true => ferrumc_codec::enc::EncodeOption::AlwaysOmitSize,
-            false => ferrumc_codec::enc::EncodeOption::Default,
-        };
-        sample_chunk.net_encode(&mut vec, &encode_option).await?;
-        let chunk_rad_axis = chunk_radius * 2 + 1;
-        debug!(
+        { // check the size of a single chunk and multiply it by the number of chunks sent
+            let sample_chunk =
+                ChunkDataAndUpdateLight::new(state.clone(), pos_x >> 4, pos_z >> 4).await?;
+            let mut vec = vec![];
+            let encode_option = match conn.read().await.metadata.compressed {
+                true => ferrumc_codec::enc::EncodeOption::AlwaysOmitSize,
+                false => ferrumc_codec::enc::EncodeOption::Default,
+            };
+            sample_chunk.net_encode(&mut vec, &encode_option).await?;
+            let chunk_rad_axis = chunk_radius * 2 + 1;
+            debug!(
                 "Send {}({}x{}) chunks to player in {:?}. Approximately {} kb of data (~{} kb per chunk)",
                 chunk_rad_axis * chunk_rad_axis,
                 chunk_rad_axis,
@@ -176,6 +180,8 @@ impl ChunkSender {
                 vec.len() as i32 * chunk_rad_axis * chunk_rad_axis / 1024,
                 vec.len() as i32 / 1024
             );
+        }
+
 
         Ok(())
     }

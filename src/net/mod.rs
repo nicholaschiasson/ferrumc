@@ -210,8 +210,6 @@ pub async fn manage_conn(conn: Arc<RwLock<Connection>>, state: GlobalState) -> R
         debug!("Starting receiver for the addr: {:?}", local_addr);
     }
 
-    let network_compression_threshold = get_global_config().network_compression_threshold;
-
     // Connection handler
     loop {
         // Get the length of the packet
@@ -353,13 +351,17 @@ impl Connection {
 
             let network_compression_threshold = get_global_config().network_compression_threshold;
             if data_length.get_val() >= network_compression_threshold {
-                // Compress the packet
-                let mut encoder = flate2::write::ZlibEncoder::new(
-                    Vec::new(),
-                    flate2::Compression::default(),
-                );
-                encoder.write_all(&packet_data)?;
-                let compressed_data = encoder.finish()?;
+                let compressed_data = tokio::task::spawn_blocking(move || {
+                    // Compress the packet
+                    let mut encoder = flate2::write::ZlibEncoder::new(
+                        Vec::new(),
+                        flate2::Compression::default(),
+                    );
+                    encoder.write_all(&packet_data)?;
+                    let compressed_data = encoder.finish()?;
+
+                    Ok::<_, Error>(compressed_data)
+                }).await??;
 
                 // Compressed packet structure
                 let compressed_length = compressed_data.len();
