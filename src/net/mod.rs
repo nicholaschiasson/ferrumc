@@ -212,6 +212,7 @@ pub async fn manage_conn(conn: Arc<RwLock<Connection>>, state: GlobalState) -> R
 
     let network_compression_threshold = get_global_config().network_compression_threshold;
 
+    // Connection handler
     loop {
         // Get the length of the packet
         let conn_read = conn.read().await;
@@ -219,7 +220,7 @@ pub async fn manage_conn(conn: Arc<RwLock<Connection>>, state: GlobalState) -> R
         trace!("Reading length buffer");
 
         let (packet_length, buffer) =
-            get_packet_length_and_buffer(&conn_read, network_compression_threshold).await?;
+            get_packet_length_and_buffer(&conn_read).await?;
         let (conn_id, conn_state, is_compressed) = (
             conn_read.id,
             conn_read.state.clone(),
@@ -227,33 +228,42 @@ pub async fn manage_conn(conn: Arc<RwLock<Connection>>, state: GlobalState) -> R
         );
         drop(conn_read); // Release the read lock
 
-        trace!("Packet Length: {}", packet_length.get_val());
-
-        let mut cursor = Cursor::new(buffer);
-
-        if is_compressed {
-            // If the packet is compressed, handle decompression
-            let data_length = VarInt::read(&mut cursor).await?.get_val() as usize;
-
-            if data_length != 0 {
-                let mut z = ZlibDecoder::new(cursor);
-                let mut decompressed_data = Vec::new();
-                z.read_to_end(&mut decompressed_data)?;
-
-                cursor = Cursor::new(decompressed_data); // Update cursor with decompressed data
-            } else {
-                trace!("Packet is not compressed (size below compression threshold)");
-            }
-        }
-
-        // Get the packet id
-        let packet_id = VarInt::read(&mut cursor).await?;
-        trace!("Packet ID: {}", packet_id);
-
-        let packet_id = packet_id.get_val() as u8;
-
         let state_clone = state.clone();
         tokio::spawn(async move {
+            trace!("Packet Length: {}", packet_length.get_val());
+
+            let mut cursor = Cursor::new(buffer);
+
+            if is_compressed {
+                // If the packet is compressed, handle decompression
+                let data_length = VarInt::read(&mut cursor).await?.get_val() as usize;
+
+                trace!("recv decompressed data length: {}", data_length);
+
+                // Data length is 0 when uncompressed
+                if data_length != 0 {
+                    trace!("Packet is compressed");
+
+                    // thing kills itself here pls hel
+                    let mut z = ZlibDecoder::new(cursor);
+                    let mut decompressed_data = Vec::new();
+                    z.read_to_end(&mut decompressed_data)?; // fails here???
+
+
+                    trace!("Decompressed data length: {}", decompressed_data.len());
+
+                    cursor = Cursor::new(decompressed_data); // Update cursor with decompressed data
+                } else {
+                    trace!("Packet is not compressed (size below compression threshold)");
+                }
+            }
+
+            // Get the packet id
+            let packet_id = VarInt::read(&mut cursor).await?;
+            trace!("Packet ID: {}", packet_id);
+
+            let packet_id = packet_id.get_val() as u8;
+
             handle_packet(packet_id, conn_id, &conn_state, &mut cursor, state_clone).await
         });
 
@@ -274,9 +284,7 @@ pub async fn manage_conn(conn: Arc<RwLock<Connection>>, state: GlobalState) -> R
 }
 async fn get_packet_length_and_buffer(
     conn: &RwLockReadGuard<'_, Connection>,
-    network_compression_threshold: i32,
 ) -> Result<(VarInt, Vec<u8>)> {
-    let compressed = conn.metadata.compressed;
     let mut conn = conn.get_in_stream().await;
 
     // Read length of packet
@@ -285,25 +293,6 @@ async fn get_packet_length_and_buffer(
     // Read packet data into buffer
     let mut buffer = vec![0u8; packet_length.get_val() as usize];
     conn.read_exact(&mut buffer).await?;
-
-    // Handle cases when compression is enabled
-    if compressed {
-        // Decompress the packet
-        let mut cursor = Cursor::new(&buffer);
-        let data_length = VarInt::read(&mut cursor).await?;
-
-        // If the data length is greater than or equal to the threshold, the data is compressed
-        if data_length.get_val() >= network_compression_threshold {
-            // Compressed packet. Need to decompress it.
-            let compressed_data = &buffer[cursor.position() as usize..];
-            let mut z = ZlibDecoder::new(Cursor::new(compressed_data));
-            let mut decompressed_data = Vec::new();
-            z.read_to_end(&mut decompressed_data)?;
-
-            // return the decompressed data
-            return Ok((data_length, decompressed_data));
-        }
-    }
 
     // Compression off or data length less than threshold. Return the buffer as is.
     Ok((packet_length, buffer))
@@ -347,7 +336,6 @@ pub async fn drop_conn(connection_id: u32, state: GlobalState) -> Result<()> {
 impl Connection {
     pub async fn send_packet(&self, packet: impl NetEncode) -> Result<()> {
         trace!("Sending packet");
-        let mut out_stream = self.get_out_stream().await;
 
         // Is compression enabled?
         let compressed = self.metadata.compressed;
@@ -365,21 +353,24 @@ impl Connection {
 
             let network_compression_threshold = get_global_config().network_compression_threshold;
             if data_length.get_val() >= network_compression_threshold {
-                trace!("Compressing packet");
                 // Compress the packet
-                let mut compressed_data = Vec::new();
                 let mut encoder = flate2::write::ZlibEncoder::new(
-                    &mut compressed_data,
+                    Vec::new(),
                     flate2::Compression::default(),
                 );
                 encoder.write_all(&packet_data)?;
-                encoder.finish()?;
+                let compressed_data = encoder.finish()?;
 
                 // Compressed packet structure
                 let compressed_length = compressed_data.len();
                 let packet_length =
                     VarInt::from((data_length.get_len() + compressed_length) as i32);
 
+                trace!("compressed data length {:?}", compressed_length);
+                trace!("packet length {:?}", packet_length);
+                trace!("data length {:?}", data_length);
+
+                let mut out_stream = self.get_out_stream().await;
                 // Send the packet
                 packet_length
                     .net_encode(&mut *out_stream, &EncodeOption::AlwaysOmitSize)
@@ -398,10 +389,11 @@ impl Connection {
                 let packet_length =
                     VarInt::from((zero_length.get_len() + packet_data.len()) as i32);
 
+                let mut out_stream = self.get_out_stream().await;
                 // Send the packet length and uncompressed data
                 packet_length
                     .net_encode(&mut *out_stream, &EncodeOption::AlwaysOmitSize)
-                    .await?;
+                    .await?; // im still connected btw lmfao 😔😔 cya ma boy alr cya
 
                 zero_length
                     .net_encode(&mut *out_stream, &EncodeOption::AlwaysOmitSize)
@@ -411,6 +403,7 @@ impl Connection {
             }
         } else {
             trace!("Compression is disabled");
+            let mut out_stream = self.get_out_stream().await;
             // Compression is disabled
             // Send the packet with no compression format (Default EncodeOption)
             packet
@@ -435,5 +428,17 @@ impl Connection {
 
     pub async fn drop_connection(&self, state: GlobalState) -> Result<()> {
         drop_conn(self.id, state).await
+    }
+}
+
+pub trait ArcRwLockConnectionExt {
+    #[allow(async_fn_in_trait)]
+    async fn send_packet(&self, packet: impl NetEncode) -> Result<()>;
+}
+
+impl ArcRwLockConnectionExt for Arc<RwLock<Connection>> {
+    async fn send_packet(&self, packet: impl NetEncode) -> Result<()> {
+        let conn = self.read().await;
+        conn.send_packet(packet).await
     }
 }

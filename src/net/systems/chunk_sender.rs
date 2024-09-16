@@ -9,7 +9,7 @@ use crate::net::packets::incoming::client_info::ClientInfo;
 use crate::net::packets::outgoing::chunk_and_light_data::ChunkDataAndUpdateLight;
 use crate::net::packets::outgoing::set_center_chunk::SetCenterChunk;
 use crate::net::systems::System;
-use crate::net::{Connection, ConnectionWrapper};
+use crate::net::{ArcRwLockConnectionExt, Connection, ConnectionWrapper};
 use crate::state::GlobalState;
 use crate::utils::components::last_chunk_tx_pos::LastChunkTxPos;
 use crate::utils::components::player::Player;
@@ -148,11 +148,12 @@ impl ChunkSender {
                 else {
                     continue;
                 };
-                let conn_read = conn.read().await;
-                if let Err(e) = conn_read.send_packet(packet).await {
-                    warn!("Failed to send chunk to player: {} ; Cancelling.", e);
-                    break 'x;
-                }
+                let arc_clone = Arc::clone(&conn);
+                tokio::spawn(async move {
+                    if let Err(e) = arc_clone.send_packet(packet).await {
+                        warn!("Failed to send chunk to player: {} ; Cancelling.", e);
+                    }
+                });
             }
         }
 

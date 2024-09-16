@@ -11,14 +11,23 @@ use ferrumc::{
     net::systems::{kill_all_systems, start_all_systems},
     utils::{config::get_global_config, prelude::*},
 };
+use ferrumc::utils::config::ServerConfig;
 
 #[tokio::main]
 async fn main() {
-    entry().await.expect("Failed to shutdown server:");
+    if let Err(e) = entry().await {
+        error!("Server exited with an error: ");
+        error!("{}", e);
+    }
 }
 
 async fn entry() -> Result<()> {
     utils::setup_logger()?;
+
+    {
+        // silently check if there are errors in the config
+        let _ = ServerConfig::new()?;
+    }
 
     if setup::handle_setup().await? {
         return Ok(());

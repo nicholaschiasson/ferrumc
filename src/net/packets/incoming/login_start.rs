@@ -11,13 +11,11 @@ use ferrumc_macros::{packet, NetDecode};
 
 use crate::net::packets::outgoing::default_spawn_position::DefaultSpawnPosition;
 use crate::net::packets::outgoing::keep_alive::KeepAlivePacketOut;
-use crate::net::packets::outgoing::login_plugin_request::LoginPluginRequest;
 use crate::net::packets::outgoing::login_success::LoginSuccess;
 use crate::net::packets::outgoing::synchronize_player_position::SynchronizePlayerPosition;
 use crate::net::packets::{ConnectionId, IncomingPacket};
 use crate::net::systems::chunk_sender::ChunkSender;
-use crate::net::utils::packet_queue::PacketQueue;
-use crate::net::Connection;
+use crate::net::{ArcRwLockConnectionExt, Connection};
 use crate::net::State::Play;
 use crate::state::GlobalState;
 use crate::utils::components::keep_alive::KeepAlive;
@@ -61,42 +59,42 @@ impl IncomingPacket for LoginStart {
         let conn = state.connections.get_connection(conn_id)?;
         // let conn = conn.read().await;
 
-        let mut packet_queue = PacketQueue::new();
+        // let mut connection = PacketQueue::new();
 
         // Encryption logic here
 
         // Compression logic
-        self.send_set_compression(&mut packet_queue, conn.clone())
+        self.send_set_compression(conn.clone(), conn.clone())
             .await?;
 
-        self.send_login_success(&mut packet_queue, &*conn.read().await)
+        self.send_login_success(conn.clone())
             .await?;
-        self.send_login_play(&mut packet_queue, &*conn.read().await)
+        self.send_login_play(conn.clone())
             .await?;
-        self.send_spawn_position(&mut packet_queue, &*conn.read().await)
+        self.send_spawn_position(conn.clone())
             .await?;
 
         let data: i64 = random();
         let mut keep_alive = KeepAlive::new(Instant::now(), Instant::now(), data);
-        self.send_keep_alive(&mut packet_queue, &mut keep_alive, &*conn.read().await)
+        self.send_keep_alive(conn.clone(), &mut keep_alive)
             .await?;
         self.update_world_state(&*conn.read().await, keep_alive, state.clone())
             .await?;
 
-        self.synchronize_player_position(state.clone(), &*conn.read().await, &mut packet_queue)
+        self.synchronize_player_position(state.clone(), &*conn.read().await, conn.clone())
             .await?;
 
-        let packet = LoginPluginRequest::server_brand("🦀".repeat(100)).await;
+        // let packet = LoginPluginRequest::server_brand("🦀".repeat(100)).await;
         // conn.send_packet(packet).await?;
-        packet_queue
+        /*connection
             .queue(packet, conn.read().await.metadata.compressed)
-            .await?;
+            .await?;*/
 
         info!("Player {} has joined the server", self.username);
 
         let mut conn = conn.write().await;
         // Send all the queued packets
-        conn.send_packets(packet_queue).await?;
+        // conn.send_packets(connection).await?;
 
         conn.state = Play;
 
@@ -114,8 +112,7 @@ impl IncomingPacket for LoginStart {
 impl LoginStart {
     async fn send_login_success(
         &self,
-        packet_queue: &mut PacketQueue,
-        conn: &Connection,
+        connection: Arc<RwLock<Connection>>,
     ) -> Result<()> {
         debug!("LoginStart packet received");
         debug!("Username: {}", self.username);
@@ -132,9 +129,11 @@ impl LoginStart {
             vec![],
         );
 
-        packet_queue
-            .queue(response, conn.metadata.compressed)
-            .await?;
+        connection.send_packet(response).await?;
+
+        /*connection
+            .send_packet(response)
+            .await?;*/
 
         // let mut cursor = std::io::Cursor::new(Vec::new());
         // response.net_encode(&mut cursor).await?;
@@ -145,8 +144,7 @@ impl LoginStart {
 
     async fn send_login_play(
         &self,
-        packet_queue: &mut PacketQueue,
-        conn: &Connection,
+        connection: Arc<RwLock<Connection>>,
     ) -> Result<()> {
         let play_packet = crate::net::packets::outgoing::login_play::LoginPlay {
             packet_id: VarInt::from(0x28),
@@ -171,9 +169,12 @@ impl LoginStart {
             portal_cooldown: VarInt::new(0),
         };
 
-        packet_queue
-            .queue(play_packet, conn.metadata.compressed)
-            .await?;
+        /*connection
+            .send_packet(play_packet)
+            .await?;*/
+
+        connection.send_packet(play_packet).await?;
+
         /*let mut cursor = std::io::Cursor::new(Vec::new());
         play_packet.net_encode(&mut cursor).await?;
         let play_packet = cursor.into_inner();
@@ -184,8 +185,7 @@ impl LoginStart {
 
     async fn send_spawn_position(
         &self,
-        packet_queue: &mut PacketQueue,
-        conn: &Connection,
+        connection: Arc<RwLock<Connection>>,
     ) -> Result<()> {
         let player_position = Position {
             x: init::DEFAULT_SPAWN_X_POS,
@@ -193,22 +193,21 @@ impl LoginStart {
             z: init::DEFAULT_SPAWN_Z_POS,
         };
         let spawn_position = DefaultSpawnPosition::new_auto(player_position.clone(), 0.0);
-        packet_queue
-            .queue(spawn_position, conn.metadata.compressed)
+        connection
+            .send_packet(spawn_position)
             .await?;
         Ok(())
     }
 
     async fn send_keep_alive(
         &self,
-        packet_queue: &mut PacketQueue,
+        connection: Arc<RwLock<Connection>>,
         keep_alive: &mut KeepAlive,
-        conn: &Connection,
     ) -> Result<()> {
         let keep_alive_outgoing: KeepAlivePacketOut = keep_alive.into();
         debug!("Sending keep alive packet {:?}", keep_alive.data);
-        packet_queue
-            .queue(keep_alive_outgoing, conn.metadata.compressed)
+        connection
+            .send_packet(keep_alive_outgoing)
             .await?;
         Ok(())
     }
@@ -245,7 +244,7 @@ impl LoginStart {
         &self,
         state: GlobalState,
         conn: &Connection,
-        packet_queue: &mut PacketQueue,
+        connection: Arc<RwLock<Connection>>,
     ) -> Result<()> {
         let entity = conn.id;
         let component_storage = state.world.get_component_storage();
@@ -255,14 +254,14 @@ impl LoginStart {
 
         let packet = SynchronizePlayerPosition::new(&position, &rotation);
 
-        packet_queue.queue(packet, conn.metadata.compressed).await?;
+        connection.send_packet(packet).await?;
 
         Ok(())
     }
 
     async fn send_set_compression(
         &self,
-        _packet_queue: &mut PacketQueue,
+        _connection: Arc<RwLock<Connection>>,
         conn: Arc<RwLock<Connection>>,
     ) -> Result<()> {
         // Get config file's network_compression_threshold value
@@ -283,10 +282,10 @@ impl LoginStart {
         let set_compression = crate::net::packets::outgoing::set_compression::SetCompression::new(
             network_compression_threshold,
         );
-        // packet_queue.queue(set_compression).await?;
+        // connection.queue(set_compression).await?;
 
         // We have to send this packet before we can start compressing packets
-        conn.write().await.send_packet(set_compression).await?;
+        conn.read().await.send_packet(set_compression).await?;
 
         // Enable compression for subsequent packets
         conn.write().await.metadata.compressed = true;

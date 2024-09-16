@@ -70,7 +70,7 @@ pub(crate) async fn setup() -> Result<(), Error> {
 
 /// The default configuration file
 /// Not using ServerConfig::default(), since it doesn't have documentation on the usage of each field.
-static BASE_CONFIG: &str = r#"
+pub static BASE_CONFIG: &str = r#"
 # The network address to bind to. Usually just 0.0.0.0 or 127.0.0.1 if you don't want to expose the server to the internet.
 host = "0.0.0.0"
 # The port to bind to. Default is 25565.
@@ -85,6 +85,12 @@ max_players = 20
 network_tick_rate = 0
 # The default world name. You can switch between mutliple worlds by changing this value.
 world = "world"
+
+# The compression threshold in bytes. Packets larger than this will be compressed.
+# 256 => every packet above 256 bytes will be compressed
+# 0 => every packet will be compressed
+# -1 => nothing will be compressed
+network_compression_threshold = 256
 
 [database]
 # The cache size in KB. We recommend leaving this at the default value.

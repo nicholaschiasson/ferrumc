@@ -55,7 +55,7 @@ fn parse_field_attributes(field: &Field) -> FieldAttribs {
             }
             Ok(())
         })
-        .unwrap();
+            .unwrap();
     }
 
     field_attrib
@@ -69,9 +69,9 @@ fn generate_field_encode_statement(field_attrib: &FieldAttribs) -> proc_macro2::
 
     let prepend_length = field_attrib.prepend_length
         || field_attrib
-            .raw_bytes
-            .as_ref()
-            .map_or(false, |rb| rb.prepend_length);
+        .raw_bytes
+        .as_ref()
+        .map_or(false, |rb| rb.prepend_length);
 
     let mut statement = quote! {
         let mut #cursor = std::io::Cursor::new(Vec::new());
@@ -128,8 +128,12 @@ fn generate_encode_impl(
                     let mut bytes_ = std::io::Cursor::new(Vec::new());
                     let mut bytes = &mut bytes_;
 
+
                     if matches!(encode_option, ferrumc_codec::enc::EncodeOption::AlwaysOmitSize) {
                         #(#field_statements)*
+
+                        let __packet_data = bytes_.into_inner();
+                        bytes_out.write_all(&__packet_data).await?;
 
                         Ok(())
                     } else {
@@ -226,9 +230,9 @@ pub(crate) fn derive(input: TokenStream) -> TokenStream {
 
     let fields = match input.data {
         syn::Data::Struct(syn::DataStruct {
-            fields: syn::Fields::Named(fields),
-            ..
-        }) => fields,
+                              fields: syn::Fields::Named(fields),
+                              ..
+                          }) => fields,
         _ => panic!("Only structs with named fields are supported"),
     };
 
