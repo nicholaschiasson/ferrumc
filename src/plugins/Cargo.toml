@@ -5,3 +5,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+extism = { workspace = true }
+tokio = { workspace = true }
+hashbrown = { workspace = true }
+tracing = { workspace = true }
+serde_yaml = { workspace = true }
+serde = { workspace = true }

@@ -1,0 +1,5 @@
+name: DemoPlugin
+executable: demoplugin.wasm
+version: 1.0.0
+author: "ReCore"
+description: "Demo plugin"
