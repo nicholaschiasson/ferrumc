@@ -16,6 +16,6 @@ pub enum PluginsError {
     /// First string is the function name, second string is the plugin name
     PluginFunctionNotFound(String, String),
     #[error("Error calling plugin function \"{0}\" for plugin {1}")]
-    /// First string is the error message, second string is the plugin name
-    PluginFunctionCallError(String, String),
+    /// First string is the error message, second string is the plugin name, third string is the function name
+    PluginFunctionCallError(String, String, String),
 }
