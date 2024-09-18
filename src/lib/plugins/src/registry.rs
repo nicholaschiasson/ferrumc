@@ -1,5 +1,6 @@
 use extism::Plugin;
 use hashbrown::HashSet;
+use parking_lot::Mutex;
 use serde::Deserialize;
 
 pub struct PluginRegistry {
@@ -9,8 +10,9 @@ pub struct PluginRegistry {
 
 pub struct PluginEntry {
     pub manifest: PluginManifest,
-    pub plugin: Plugin,
+    pub plugin: Mutex<Plugin>,
     pub functions: HashSet<String>,
+    pub enabled: bool,
 }
 
 #[derive(Deserialize)]

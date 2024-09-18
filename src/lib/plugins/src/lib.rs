@@ -1,23 +1,23 @@
 #![feature(iter_array_chunks)]
 #![feature(try_trait_v2)]
+#![feature(async_closure)]
 
 use crate::registry::{PluginEntry, PluginManifest, PluginRegistry};
 use extism::*;
 use hashbrown::HashSet;
+use parking_lot::Mutex;
 use tracing::log::warn;
 
 pub mod errors;
 pub mod plugin_funcs;
 pub mod registry;
 
-pub fn setup_plugins(reg: &mut PluginRegistry) -> Result<(), Error> {
+pub async fn setup_plugins(reg: &mut PluginRegistry) -> Result<(), Error> {
     for plugin in &mut reg.plugins {
-        if let Err(e) = plugin.plugin.call::<(), ()>("setup", ()) {
-            return Err(errors::PluginsError::PluginLoadError(format!(
-                "Error loading plugin {}: {}",
-                plugin.manifest.name, e
-            ))
-            .into());
+        let output = plugin.invoke_async("setup").await;
+        if let Err(e) = output {
+            warn!("Error setting up plugin: {}", e);
+            plugin.enabled = false;
         }
     }
     Ok(())
@@ -50,11 +50,12 @@ pub async fn load_plugins() -> Result<PluginRegistry, Error> {
             if executable.exists() {
                 let wasm = Wasm::file(executable);
                 let manifest = Manifest::new([wasm]);
-                let plugin = Plugin::new(manifest, [], false)?;
+                let plugin = Mutex::new(Plugin::new(manifest, [], false)?);
                 plugins.push(PluginEntry {
                     plugin,
                     manifest: plugin_manifest,
                     functions,
+                    enabled: true,
                 });
                 plugin_count += 1;
             } else {
@@ -93,7 +94,7 @@ mod tests {
     #[tokio::test]
     async fn test_setup_plugins() {
         let mut registry = load_plugins().await.unwrap();
-        let res = setup_plugins(&mut registry);
+        let res = setup_plugins(&mut registry).await;
         assert!(res.is_ok());
     }
 }

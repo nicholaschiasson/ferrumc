@@ -13,6 +13,7 @@ serde_yaml = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tinyvec = { workspace = true }
+parking_lot = { workspace = true }
 
 ferrumc-net = { workspace = true }
 ferrumc-net-encryption = { workspace = true }
