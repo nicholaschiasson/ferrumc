@@ -125,6 +125,7 @@ syn = "2.0.77"
 
 # plugins
 extism = "1.6.0"
+extism-pdk = "1.2.1"
 
 # Magic
 ctor = "0.2.8"

@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use crate::errors::PluginsError;
 use crate::Error;
 use crate::PluginEntry;
@@ -13,8 +14,10 @@ impl PluginEntry {
         ReturnType: extism::FromBytes<'a>,
     {
         if self.functions.contains(function) {
-            let mut plugin_lock = self.plugin.lock();
-            let output = plugin_lock.call::<ArgType, ReturnType>(function, args);
+            let output = {
+                let mut plugin_lock = self.plugin.lock();
+                plugin_lock.call::<ArgType, ReturnType>(function, args)
+            };
             match output {
                 Ok(result) => Ok(result),
                 Err(e) => Err(PluginsError::PluginFunctionCallError(
@@ -101,8 +104,9 @@ impl PluginEntry {
         if does_function_exist {
             let name = self.manifest.name.clone();
             let func_clone = function;
+            let plugin = self.plugin.clone();
             let output = tokio::task::spawn_blocking(move || {
-                self.plugin.lock().call::<(), ()>(function, ())
+                plugin.lock().call::<(), ()>(function, ())
             })
             .await
             .expect("Failed to spawn blocking task");

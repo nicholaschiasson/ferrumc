@@ -11,6 +11,7 @@ use tracing::log::warn;
 pub mod errors;
 pub mod plugin_funcs;
 pub mod registry;
+mod api;
 
 pub async fn setup_plugins(reg: &mut PluginRegistry) -> Result<(), Error> {
     for plugin in &mut reg.plugins {
