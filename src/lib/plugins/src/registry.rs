@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use extism::Plugin;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
@@ -10,7 +11,7 @@ pub struct PluginRegistry {
 
 pub struct PluginEntry {
     pub manifest: PluginManifest,
-    pub plugin: Mutex<Plugin>,
+    pub plugin: Arc<Mutex<Plugin>>,
     pub functions: HashSet<String>,
     pub enabled: bool,
 }
