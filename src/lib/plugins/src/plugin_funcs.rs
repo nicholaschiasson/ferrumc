@@ -1,13 +1,10 @@
-use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
-use parking_lot::Mutex;
 use crate::errors::PluginsError;
 use crate::Error;
 use crate::PluginEntry;
 
 impl PluginEntry {
     pub fn call<'a, ArgType, ReturnType>(
-        &'static mut self,
+        &'a mut self,
         function: &'a str,
         args: ArgType,
     ) -> Result<ReturnType, Error>
@@ -16,10 +13,8 @@ impl PluginEntry {
         ReturnType: extism::FromBytes<'a> + 'static,
     {
         if self.functions.contains(function) {
-            let output = {
-                let mut plugin = self.plugin.lock();
-                plugin.call::<ArgType, ReturnType>(function, args)
-            };
+            let mut plugin = self.plugin.lock();
+            let output = plugin.call::<ArgType, ReturnType>(function, args);
             match output {
                 Ok(result) => Ok(result),
                 Err(e) => Err(PluginsError::PluginFunctionCallError(
@@ -43,7 +38,7 @@ impl PluginEntry {
     }
 
     pub async fn call_async<'a, ArgType, ReturnType>(
-        &'static mut self,
+        &'a mut self,
         function: &str,
         args: ArgType,
     ) -> Result<ReturnType, Error>
@@ -56,10 +51,10 @@ impl PluginEntry {
         if does_function_exist {
             let name = self.manifest.name.clone();
             let func_clone = function.clone();
-            let output = tokio::task::spawn_blocking(move || {
-                let mut plugin = self.plugin.lock();
+            let mut plugin = self.plugin.lock();
+            let output = tokio::task::block_in_place(move || {
                 plugin.call::<ArgType, ReturnType>(function.clone(), args)
-            }).await.expect("Failed to spawn blocking task");
+            });
             match output {
                 Ok(result) => Ok(result),
                 Err(e) => {

@@ -3,6 +3,7 @@
 #![feature(async_closure)]
 
 use std::ops::DerefMut;
+use std::sync::Arc;
 use crate::registry::{PluginEntry, PluginManifest, PluginRegistry};
 use extism::*;
 use hashbrown::HashSet;
@@ -15,7 +16,7 @@ pub mod registry;
 mod api;
 
 pub async fn setup_plugins(reg: &mut PluginRegistry) -> Result<(), Error> {
-    for plugin in reg.plugins.deref_mut() {
+    for plugin in reg.plugins.iter_mut() {
         let output = plugin.invoke_async("setup").await;
         if let Err(e) = output {
             warn!("Error setting up plugin: {}", e);
@@ -52,7 +53,7 @@ pub async fn load_plugins() -> Result<PluginRegistry, Error> {
             if executable.exists() {
                 let wasm = Wasm::file(executable);
                 let manifest = Manifest::new([wasm]);
-                let plugin = Mutex::new(Plugin::new(manifest, [], false)?);
+                let plugin = Arc::new(Mutex::new(Plugin::new(manifest, [], false)?));
                 plugins.push(PluginEntry {
                     plugin,
                     manifest: plugin_manifest,
