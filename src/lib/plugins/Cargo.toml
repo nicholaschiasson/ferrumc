@@ -11,3 +11,5 @@ ferrumc-net = { workspace = true }
 ferrumc-net-encryption = { workspace = true }
 jni = { workspace = true, features = ["invocation"] }
 ferrumc-utils = { workspace = true }
+which = { workspace = true }
+tracing = { workspace = true }

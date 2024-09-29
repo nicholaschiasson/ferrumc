@@ -153,5 +153,8 @@ tempfile = "3.12.0"
 # Plugins
 jni = "0.21.1"
 
+# OS
+which = "6.0.3"
+
 # Benchmarking
 criterion = { version = "0.5.1", features = ["html_reports"] }
