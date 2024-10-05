@@ -155,6 +155,7 @@ jni = "0.21.1"
 
 # OS
 which = "6.0.3"
+memory-stats = "1.2.0"
 
 # Benchmarking
 criterion = { version = "0.5.1", features = ["html_reports"] }
