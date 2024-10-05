@@ -1,10 +1,11 @@
 pub mod errors;
+mod loading;
+
 use crate::errors::PluginsError;
-use ferrumc_utils::root;
 use jni::objects::JObject;
-use jni::{AttachGuard, InitArgsBuilder, JNIEnv, JNIVersion, JavaVM};
+use jni::{InitArgsBuilder, JNIVersion, JavaVM};
 use std::sync::Arc;
-use tracing::error;
+use tracing::{error, info};
 use which::which;
 
 pub fn load_plugins() -> Result<Arc<JavaVM>, PluginsError> {
@@ -18,6 +19,9 @@ pub fn load_plugins() -> Result<Arc<JavaVM>, PluginsError> {
     // C:\Program Files (x86)\Common Files\Oracle\Java\javapath, check C:\Program Files\Java\jdk-23\bin
     // and maybe add it to your PATH if needed)
     // 3. Try setting JAVA_HOME to the path of your java install
+    // Grab java from here: https://www.oracle.com/au/java/technologies/downloads/#jdk21-windows and
+    // add it to your PATH
+    // TODO: Make it try install Java it it can't find it
     let jvm_args = InitArgsBuilder::new()
         .version(JNIVersion::V8)
         .option("-Xcheck:jni")
@@ -29,17 +33,12 @@ pub fn load_plugins() -> Result<Arc<JavaVM>, PluginsError> {
     );
     jvm.attach_current_thread_permanently()
         .map_err(|e| PluginsError::JVMError(format!("Failed to attach to JVM: {}", e)))?;
-    let class_files = std::fs::read_dir(root!(".etc/plugins")).unwrap();
+    let class_files = loading::get_class_files()?;
     let mut env = jvm.get_env().unwrap();
-    for dir_file in class_files.flatten() {
-        let file_name = dir_file.file_name();
-        let file_name = file_name.to_str().unwrap();
-        if file_name.ends_with(".class") {
-            let data = std::fs::read(dir_file.path()).unwrap();
-            env.define_unnamed_class(&JObject::null(), &data)
-                .map_err(|e| PluginsError::JVMError(format!("Failed to load class: {}", e)))?;
-            println!("Loaded: {}", file_name);
-        }
+    for (class_data, class_name) in class_files {
+        env.define_unnamed_class(&JObject::null(), &class_data)
+            .map_err(|e| PluginsError::JVMError(format!("Failed to load class: {}", e)))?;
+        info!("Loaded: {}", class_name);
     }
     Ok(jvm.clone())
 }
@@ -48,12 +47,9 @@ pub fn load_plugins() -> Result<Arc<JavaVM>, PluginsError> {
 mod tests {
     #[test]
     fn test_setup() {
-        println!("Mem use before: {}", memory_stats::memory_stats().unwrap().physical_mem);
         let jvm = super::load_plugins().unwrap();
-        println!("Mem use during: {}", memory_stats::memory_stats().unwrap().physical_mem);
         let mut env = jvm.get_env().unwrap();
         env.call_static_method("com/ferrumc/MainKt", "setup", "()V", &[])
             .unwrap();
-        println!("Mem use after: {}", memory_stats::memory_stats().unwrap().physical_mem);
     }
 }

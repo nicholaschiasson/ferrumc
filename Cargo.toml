@@ -148,6 +148,7 @@ rocksdb = "0.22.0"
 
 # I/O
 tempfile = "3.12.0"
+piz = "0.5.1"
 
 
 # Plugins
