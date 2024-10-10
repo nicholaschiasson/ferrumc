@@ -7,13 +7,16 @@ edition = "2021"
 [dependencies]
 thiserror = { workspace = true }
 
-ferrumc-net = { workspace = true }
-ferrumc-net-encryption = { workspace = true }
 jni = { workspace = true, features = ["invocation"] }
 ferrumc-utils = { workspace = true }
 which = { workspace = true }
 tracing = { workspace = true }
 piz = { workspace = true }
-
+ferrumc-macros = { workspace = true }
+ferrumc-nbt = { workspace = true }
+ferrumc-logging = { workspace = true }
+regex = { workspace = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
 [dev-dependencies]
 memory-stats = { workspace = true }

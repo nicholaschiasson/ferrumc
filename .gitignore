@@ -5,3 +5,4 @@
 Cargo.lock
 config.toml
 .temp
+**/*/hs_err_pid*.log

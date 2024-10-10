@@ -8,8 +8,10 @@ use tracing_subscriber::util::SubscriberInitExt;
 static LOG_LEVEL: Level = Level::TRACE;
 
 pub fn init_logging() {
-    let env_filter =
-        tracing_subscriber::EnvFilter::from_default_env().add_directive(LOG_LEVEL.into());
+    let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+        .add_directive(LOG_LEVEL.into())
+        .add_directive("piz=off".parse().unwrap())
+        .add_directive("jni=off".parse().unwrap());
 
     let fmt_layer = tracing_subscriber::fmt::Layer::default();
 
