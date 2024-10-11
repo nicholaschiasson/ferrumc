@@ -1,23 +1,17 @@
 mod api;
 pub mod errors;
-mod loading;
 
 use crate::api::setup_plugins;
 use crate::errors::PluginsError;
 use ferrumc_utils::root;
-use jni::objects::{
-    AsJArrayRaw, JByteArray, JByteBuffer, JClass, JObject, JPrimitiveArray, JValue,
-};
-use jni::sys::{jbyte, jlong};
+use jni::objects::{JByteArray, JClass};
 use jni::{InitArgsBuilder, JNIEnv, JNIVersion, JavaVM};
-use once_cell::sync::OnceCell;
-use std::hash::DefaultHasher;
-use std::hash::Hasher;
 use std::sync::Arc;
 use tracing::{error, info};
 use which::which;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct Plugin {
     name: String,
     display_name: String,
@@ -27,6 +21,7 @@ pub(crate) struct Plugin {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Plugins {
     jvm: Arc<JavaVM>,
     plugins: Vec<Plugin>,
@@ -40,10 +35,10 @@ extern "C" fn input_handler<'a>(env: JNIEnv<'a>, _: JClass, data: JByteArray) ->
         let ret = env.byte_array_from_slice(error_msg.as_bytes()).unwrap();
         return ret;
     }
-    return match env.convert_byte_array(data) {
+    match env.convert_byte_array(data) {
         Ok(bytes) => {
             info!(
-                "Recived data from plugin: {:?}",
+                "Received data from plugin: {:?}",
                 String::from_utf8(bytes).unwrap()
             );
             env.byte_array_from_slice(&[0]).unwrap()
@@ -52,7 +47,7 @@ extern "C" fn input_handler<'a>(env: JNIEnv<'a>, _: JClass, data: JByteArray) ->
             let error_msg = format!("Failed to convert byte array: {}", e);
             env.byte_array_from_slice(error_msg.as_bytes()).unwrap()
         }
-    };
+    }
 }
 
 pub fn load_plugins() -> Result<Plugins, PluginsError> {
@@ -73,7 +68,7 @@ pub fn load_plugins() -> Result<Plugins, PluginsError> {
         .version(JNIVersion::V8)
         .option(format!(
             "-Djava.class.path={}",
-            root!(".etc\\plugins\\Demoplugin-1.0.jar"),
+            root!(".etc\\plugins\\DemoPlugin-1.0.jar"),
         ))
         .option("-Xcheck:jni")
         // .option("-verbose:jni")
