@@ -5,9 +5,14 @@ mod loading;
 use crate::api::setup_plugins;
 use crate::errors::PluginsError;
 use ferrumc_utils::root;
-use jni::objects::{AsJArrayRaw, JByteArray, JByteBuffer, JObject, JPrimitiveArray, JValue};
-use jni::{InitArgsBuilder, JNIVersion, JavaVM};
+use jni::objects::{
+    AsJArrayRaw, JByteArray, JByteBuffer, JClass, JObject, JPrimitiveArray, JValue,
+};
+use jni::sys::{jbyte, jlong};
+use jni::{InitArgsBuilder, JNIEnv, JNIVersion, JavaVM};
 use once_cell::sync::OnceCell;
+use std::hash::DefaultHasher;
+use std::hash::Hasher;
 use std::sync::Arc;
 use tracing::{error, info};
 use which::which;
@@ -27,22 +32,30 @@ pub struct Plugins {
     plugins: Vec<Plugin>,
 }
 
-static PLUGINS: OnceCell<Plugins> = OnceCell::new();
-
 #[no_mangle]
-extern "C" fn input_handler(data: JByteArray) {
-    if let Some(env) = PLUGINS.get().and_then(|p| p.jvm.get_env().ok()) {
-        if let Ok(data) = env.convert_byte_array(data) {
-            info!("Received: {}", String::from_utf8_lossy(&data));
-        } else {
-            error!("Failed to convert byte array");
-        }
-    } else {
-        error!("Failed to get JVM environment");
+extern "C" fn input_handler<'a>(env: JNIEnv<'a>, _: JClass, data: JByteArray) -> JByteArray<'a> {
+    if data.is_null() {
+        let error_msg = "Received null byte array";
+        error!("{}", error_msg);
+        let ret = env.byte_array_from_slice(error_msg.as_bytes()).unwrap();
+        return ret;
     }
+    return match env.convert_byte_array(data) {
+        Ok(bytes) => {
+            info!(
+                "Recived data from plugin: {:?}",
+                String::from_utf8(bytes).unwrap()
+            );
+            env.byte_array_from_slice(&[0]).unwrap()
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to convert byte array: {}", e);
+            env.byte_array_from_slice(error_msg.as_bytes()).unwrap()
+        }
+    };
 }
 
-pub fn load_plugins() -> Result<(), PluginsError> {
+pub fn load_plugins() -> Result<Plugins, PluginsError> {
     if which("java").is_err() {
         error!("Java not found in PATH");
         return Err(PluginsError::JVMError("Java not found in PATH".to_string()));
@@ -63,6 +76,7 @@ pub fn load_plugins() -> Result<(), PluginsError> {
             root!(".etc\\plugins\\Demoplugin-1.0.jar"),
         ))
         .option("-Xcheck:jni")
+        // .option("-verbose:jni")
         .build()
         .map_err(|e| PluginsError::JVMError(format!("Failed to create JVM args: {}", e)))?;
     let jvm = Arc::new(
@@ -76,16 +90,11 @@ pub fn load_plugins() -> Result<(), PluginsError> {
         plugins: vec![],
     };
     setup_plugins(&mut plugins);
-    if PLUGINS.set(plugins).is_err() {
-        error!("Failed to set plugins");
-        return Err(PluginsError::JVMError("Failed to set plugins".to_string()));
-    }
-    Ok(())
+    Ok(plugins)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::PLUGINS;
     use jni::strings::JNIString;
     use jni::NativeMethod;
     use std::ffi::c_void;
@@ -93,11 +102,11 @@ mod tests {
     #[test]
     fn test_setup() {
         ferrumc_logging::init_logging();
-        super::load_plugins().unwrap();
-        let mut env = PLUGINS.get().unwrap().jvm.get_env().unwrap();
+        let plugins = super::load_plugins().unwrap();
+        let mut env = plugins.jvm.get_env().unwrap();
         let handler = NativeMethod {
             name: JNIString::from("nativeCall"),
-            sig: JNIString::from("([B)V"),
+            sig: JNIString::from("([B)[B"),
             fn_ptr: super::input_handler as *mut c_void,
         };
         env.register_native_methods("com/ferrumc/entry", &[handler])
