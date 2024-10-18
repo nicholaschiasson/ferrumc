@@ -213,3 +213,58 @@ impl DatabaseBackend for SledBackend {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use tokio;
+
+    #[tokio::test]
+    async fn test_insert_and_get() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("test_db");
+        let mut backend = SledBackend::initialize(Some(path)).await.unwrap();
+
+        backend.insert("test_table".to_string(), 1, vec![1, 2, 3]).await.unwrap();
+        let value = backend.get("test_table".to_string(), 1).await.unwrap();
+        assert_eq!(value, Some(vec![1, 2, 3]));
+    }
+
+    #[tokio::test]
+    async fn test_delete() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("test_db");
+        let mut backend = SledBackend::initialize(Some(path)).await.unwrap();
+
+        backend.insert("test_table".to_string(), 1, vec![1, 2, 3]).await.unwrap();
+        backend.delete("test_table".to_string(), 1).await.unwrap();
+        let value = backend.get("test_table".to_string(), 1).await.unwrap();
+        assert_eq!(value, None);
+    }
+
+    #[tokio::test]
+    async fn test_upsert() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("test_db");
+        let mut backend = SledBackend::initialize(Some(path)).await.unwrap();
+
+        let is_new = backend.upsert("test_table".to_string(), 1, vec![1, 2, 3]).await.unwrap();
+        assert!(is_new);
+        let is_new = backend.upsert("test_table".to_string(), 1, vec![4, 5, 6]).await.unwrap();
+        assert!(!is_new);
+    }
+
+    #[tokio::test]
+    async fn test_exists() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("test_db");
+        let mut backend = SledBackend::initialize(Some(path)).await.unwrap();
+
+        backend.insert("test_table".to_string(), 1, vec![1, 2, 3]).await.unwrap();
+        let exists = backend.exists("test_table".to_string(), 1).await.unwrap();
+        assert!(exists);
+        let exists = backend.exists("test_table".to_string(), 2).await.unwrap();
+        assert!(!exists);
+    }
+}

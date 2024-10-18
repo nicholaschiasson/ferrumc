@@ -126,7 +126,8 @@ pub trait DatabaseBackend {
     ///
     /// # Returns
     ///
-    /// A Result containing a boolean indicating if the key was inserted or updated or a StorageError
+    /// A Result containing a boolean indicating if the key was inserted or updated or a StorageError.
+    /// If the key was inserted, the boolean will be false. If the key was updated, the boolean will be true.
     async fn upsert(
         &mut self,
         table: String,

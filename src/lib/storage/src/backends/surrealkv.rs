@@ -92,7 +92,19 @@ impl DatabaseBackend for SurrealKVBackend {
         value: Vec<u8>,
     ) -> Result<(), StorageError> {
         if self.exists(table.clone(), key).await? {
-            self.insert(table, key, value).await
+            let mut modified_key = table.as_bytes().to_vec();
+            modified_key.extend_from_slice(&key.to_be_bytes());
+            let mut tx = self
+                .db
+                .write()
+                .begin()
+                .map_err(|e| StorageError::WriteError(e.to_string()))?;
+            tx.set(&modified_key, &value)
+                .map_err(|e| StorageError::WriteError(e.to_string()))?;
+            tx.commit()
+                .await
+                .map_err(|e| StorageError::WriteError(e.to_string()))?;
+            Ok(())
         } else {
             Err(StorageError::KeyNotFound(key))
         }
@@ -106,10 +118,10 @@ impl DatabaseBackend for SurrealKVBackend {
     ) -> Result<bool, StorageError> {
         if self.exists(table.clone(), key).await? {
             self.update(table, key, value).await?;
-            Ok(false)
+            Ok(true)
         } else {
             self.insert(table, key, value).await?;
-            Ok(true)
+            Ok(false)
         }
     }
 
@@ -188,5 +200,72 @@ impl DatabaseBackend for SurrealKVBackend {
         let res = write_guard.close().await;
         drop(write_guard);
         res.map_err(|e| StorageError::CloseError(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    async fn setup_backend() -> SurrealKVBackend {
+        let dir = tempdir().unwrap();
+        let path = dir.path().to_path_buf();
+        SurrealKVBackend::initialize(Some(path)).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_insert_and_get() {
+        let mut backend = setup_backend().await;
+        let table = "test_table".to_string();
+        let key = 0;
+        let value = b"test_value_for_insert_and_get".to_vec();
+
+        backend.insert(table.clone(), key, value.clone()).await.unwrap();
+        let retrieved_value = backend.get(table, key).await.unwrap().unwrap();
+        assert_eq!(retrieved_value, value);
+    }
+
+    #[tokio::test]
+    async fn test_delete() {
+        let mut backend = setup_backend().await;
+        let table = "test_table".to_string();
+        let key = 1;
+        let value = b"test_value_for_delete".to_vec();
+
+        backend.insert(table.clone(), key, value.clone()).await.unwrap();
+        backend.delete(table.clone(), key).await.unwrap();
+        let retrieved_value = backend.get(table, key).await.unwrap();
+        assert!(retrieved_value.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update() {
+        let mut backend = setup_backend().await;
+        let table = "test_table".to_string();
+        let key = 2;
+        let value = b"test_value_for_update".to_vec();
+        let new_value = b"new_value_for_update".to_vec();
+
+        backend.insert(table.clone(), key, value.clone()).await.unwrap();
+        backend.update(table.clone(), key, new_value.clone()).await.unwrap();
+        let retrieved_value = backend.get(table, key).await.unwrap().unwrap();
+        assert_eq!(retrieved_value, new_value);
+    }
+
+    #[tokio::test]
+    async fn test_upsert() {
+        let mut backend = setup_backend().await;
+        let table = "test_table".to_string();
+        let key = 3;
+        let value = b"test_value_for_upsert".to_vec();
+        let new_value = b"new_value_for_upsert".to_vec();
+
+        let inserted = backend.upsert(table.clone(), key, value.clone()).await.unwrap();
+        assert!(!inserted);
+        let updated = backend.upsert(table.clone(), key, new_value.clone()).await.unwrap();
+        assert!(updated);
+        let retrieved_value = backend.get(table, key).await.unwrap().unwrap();
+        assert_eq!(retrieved_value, new_value);
     }
 }
