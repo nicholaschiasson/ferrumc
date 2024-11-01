@@ -214,5 +214,9 @@ network_compression_threshold = 256
 
 [database]
 cache_size = 1024
-compression = "fast"
+compression = "zlib"
+backend = "surrealkv"
+db_path = "./data"
+import_path = "./world"
+compression_level = 5
 "#;

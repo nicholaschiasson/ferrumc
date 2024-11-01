@@ -24,7 +24,7 @@ impl From<std::io::Error> for WorldError {
     fn from(err: std::io::Error) -> Self {
         match err.kind() {
             ErrorKind::PermissionDenied => PermissionError(err.to_string()),
-            ErrorKind::ReadOnlyFilesystem => PermissionError(err.to_string()),
+            // ErrorKind::ReadOnlyFilesystem => PermissionError(err.to_string()),
             _ => GenericIOError(err.to_string()),
         }
     }

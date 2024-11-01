@@ -6,16 +6,23 @@ use crate::errors::WorldError;
 use ferrumc_config::get_global_config;
 use ferrumc_storage::compressors::Compressor;
 use ferrumc_storage::DatabaseBackend;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::process::exit;
 use tokio::fs::create_dir_all;
 use tracing::{error, warn};
+use ferrumc_general_purpose::paths::get_root_path;
 
 #[expect(dead_code)]
 pub struct World {
     storage_backend: Box<dyn DatabaseBackend>,
     compressor: Compressor,
     // TODO: Cache
+}
+
+fn get_db_path() -> PathBuf {
+    let config = get_global_config();
+    let path = get_root_path().expect("Could not get root path").join(&config.database.db_path);
+    PathBuf::from(path)
 }
 
 async fn check_config_validity() -> Result<(), WorldError> {
@@ -28,22 +35,24 @@ async fn check_config_validity() -> Result<(), WorldError> {
         error!("No backend specified. Please set the backend in the configuration file.");
         return Err(WorldError::InvalidBackend(config.database.backend.clone()));
     }
-    if !Path::new(&config.database.db_path).exists() {
+    // if !Path::new(&config.database.db_path).exists() {
+    let db_path = get_db_path();
+    if !db_path.exists() {
         warn!("World path does not exist. Attempting to create it.");
-        if create_dir_all(&config.database.db_path).await.is_err() {
+        if create_dir_all(&db_path).await.is_err() {
             error!("Could not create world path: {}", config.database.db_path);
             return Err(WorldError::InvalidWorldPath(
                 config.database.db_path.clone(),
             ));
         }
     }
-    if Path::new(&config.database.db_path).is_file() {
+    if db_path.is_file() {
         error!("World path is a file. Please set the world path to a directory.");
         return Err(WorldError::InvalidWorldPath(
             config.database.db_path.clone(),
         ));
     }
-    if let Err(e) = Path::new(&config.database.db_path).read_dir() {
+    if let Err(e) = db_path.read_dir() {
         error!("Could not read world path: {}", e);
         return Err(WorldError::InvalidWorldPath(
             config.database.db_path.clone(),
@@ -73,7 +82,7 @@ impl World {
         }
         // Clones are kinda ok here since this is only run once at startup.
         let backend_string = get_global_config().database.backend.trim();
-        let backend_path = get_global_config().database.db_path.clone();
+        let backend_path = get_db_path();
         let storage_backend: Result<Box<dyn DatabaseBackend>, WorldError> = match backend_string
             .to_lowercase()
             .as_str()

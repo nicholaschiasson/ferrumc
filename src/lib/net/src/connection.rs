@@ -96,9 +96,12 @@ pub async fn handle_connection(state: Arc<ServerState>, tcp_stream: TcpStream) -
             break 'recv;
         };
 
-        if state.log_packets.load(std::sync::atomic::Ordering::Relaxed){
+        if option_env!("FERRUMC_LOG_PACKETS").is_some() {
             trace!("Received packet: {:?}", packet_skele);
         }
+        /*if state.log_packets.load(std::sync::atomic::Ordering::Relaxed){
+            trace!("Received packet: {:?}", packet_skele);
+        }*/
 
         let conn_state = state.universe.get::<ConnectionState>(entity)?.clone();
         if let Err(e) = handle_packet(

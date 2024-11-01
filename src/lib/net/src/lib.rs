@@ -1,6 +1,7 @@
 use ferrumc_ecs::Universe;
 use ferrumc_macros::bake_packet_registry;
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc};
+use ferrumc_world::World;
 
 pub mod connection;
 pub mod errors;
@@ -11,16 +12,16 @@ pub type NetResult<T> = Result<T, errors::NetError>;
 
 pub struct ServerState {
     pub universe: Universe,
-    pub log_packets: AtomicBool,
+    pub minecraft_world: World
 }
 
 pub type GlobalState = Arc<ServerState>;
 
 impl ServerState {
-    pub fn new(universe: Universe, log_packets: AtomicBool) -> Self {
+    pub fn new(universe: Universe, minecraft_world: World) -> Self {
         Self {
             universe,
-            log_packets,
+            minecraft_world
         }
     }
 }

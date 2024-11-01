@@ -11,6 +11,7 @@ tracing = { workspace = true }
 ferrumc-profiling = { workspace = true}
 ferrumc-macros = { workspace = true }
 ferrumc-utils = { workspace = true }
+ferrumc-general-purpose = { workspace = true }
 rand = { workspace = true }
 zstd = { workspace = true }
 brotli = { workspace = true }
