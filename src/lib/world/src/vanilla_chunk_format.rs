@@ -1,11 +1,11 @@
-use bitcode::{Decode, Encode};
 use ferrumc_macros::NBTDeserialize;
-use ferrumc_macros::NBTSerialize;
 use macro_rules_attribute::{apply, attribute_alias};
-use serde_derive::{Deserialize, Serialize};
 
 attribute_alias! {
-    #[apply(ChunkDerives)] = #[derive(NBTSerialize, NBTDeserialize,
+    #[apply(ChunkDerives)] = #[derive(
+        NBTDeserialize,
+        Debug
+        /*NBTSerialize, NBTDeserialize,
     Debug,
     Clone,
     PartialEq,
@@ -13,7 +13,7 @@ attribute_alias! {
     Serialize,
     Decode,
     Deserialize,
-    Eq
+    Eq*/
 )];
 }
 
@@ -21,14 +21,14 @@ attribute_alias! {
 #[derive(deepsize::DeepSizeOf)]
 #[nbt(is_root)]
 #[nbt(rename = "")]
-pub(crate) struct Chunk {
-    pub dimension: Option<String>,
+pub(crate) struct Chunk<'a> {
+    pub dimension: Option<&'a str>,
     #[nbt(rename = "Status")]
-    pub status: String,
+    pub status: &'a str,
     #[nbt(rename = "DataVersion")]
     pub data_version: i32,
     #[nbt(rename = "Heightmaps")]
-    pub heightmaps: Option<Heightmaps>,
+    pub heightmaps: Option<Heightmaps<'a>>,
     #[nbt(rename = "isLightOn")]
     pub is_light_on: Option<i8>,
     #[nbt(rename = "InhabitedTime")]
@@ -39,32 +39,28 @@ pub(crate) struct Chunk {
     pub x_pos: i32,
     #[nbt(rename = "zPos")]
     pub z_pos: i32,
-    pub(crate) structures: Option<Structures>,
+    pub(crate) structures: Option<Structures<'a>>,
     #[nbt(rename = "LastUpdate")]
     pub last_update: Option<i64>,
-    pub sections: Option<Vec<Section>>,
+    pub sections: Option<&'a [Section<'a>]>,
 }
 
 #[apply(ChunkDerives)]
 #[derive(deepsize::DeepSizeOf)]
 #[nbt(net_encode)]
-pub(crate) struct Heightmaps {
-    // #[nbt(rename = "MOTION_BLOCKING_NO_LEAVES")]
-    // pub motion_blocking_no_leaves: Option<Vec<i64>>,
+pub(crate) struct Heightmaps<'a> {
     #[nbt(rename = "MOTION_BLOCKING")]
-    pub motion_blocking: Option<Vec<i64>>,
-    // #[nbt(rename = "OCEAN_FLOOR")]
-    // pub ocean_floor: Option<Vec<i64>>,
+    pub motion_blocking: Option<&'a [i64]>,
     #[nbt(rename = "WORLD_SURFACE")]
-    pub world_surface: Option<Vec<i64>>,
+    pub world_surface: Option<&'a [i64]>,
 }
 
 #[apply(ChunkDerives)]
 #[derive(deepsize::DeepSizeOf)]
-pub(crate) struct Structures {
+pub(crate) struct Structures<'a> {
     pub starts: Starts,
     #[nbt(rename = "References")]
-    pub references: References,
+    pub references: References<'a>,
 }
 
 #[apply(ChunkDerives)]
@@ -73,57 +69,55 @@ pub(crate) struct Starts {}
 
 #[apply(ChunkDerives)]
 #[derive(deepsize::DeepSizeOf)]
-pub(crate) struct References {}
+pub(crate) struct References<'a> {}
 
 #[apply(ChunkDerives)]
 #[derive(deepsize::DeepSizeOf)]
-pub(crate) struct Section {
+pub(crate) struct Section<'a> {
     #[nbt(rename = "block_states")]
-    pub block_states: Option<BlockStates>,
-    pub biomes: Option<Biomes>,
+    pub block_states: Option<BlockStates<'a>>,
+    pub biomes: Option<Biomes<'a>>,
     #[nbt(rename = "Y")]
     pub y: i8,
     #[nbt(rename = "BlockLight")]
-    pub block_light: Option<Vec<i8>>,
+    pub block_light: Option<&'a [i8]>,
     #[nbt(rename = "SkyLight")]
-    pub sky_light: Option<Vec<i8>>,
+    pub sky_light: Option<&'a [i8]>,
 }
 
 #[apply(ChunkDerives)]
 #[derive(deepsize::DeepSizeOf)]
-pub(crate) struct BlockStates {
-    pub data: Option<Vec<i64>>,
-    pub palette: Option<Vec<Palette>>,
+pub(crate) struct BlockStates<'a> {
+    pub data: Option<&'a [i64]>,
+    pub palette: Option<&'a [Palette<'a>]>,
 }
 
 #[apply(ChunkDerives)]
 #[derive(deepsize::DeepSizeOf)]
-pub(crate) struct Palette {
+pub(crate) struct Palette<'a> {
     #[nbt(rename = "Name")]
-    pub name: String,
-    // #[nbt(rename = "Properties")]
-    // pub properties: Option<HashMap<String, String>>,
+    pub name: &'a str,
 }
 
 #[apply(ChunkDerives)]
 #[derive(deepsize::DeepSizeOf)]
-pub(crate) struct Properties {
-    pub snowy: Option<String>,
-    pub level: Option<String>,
-    pub east: Option<String>,
-    pub waterlogged: Option<String>,
-    pub north: Option<String>,
-    pub west: Option<String>,
-    pub up: Option<String>,
-    pub down: Option<String>,
-    pub south: Option<String>,
-    pub drag: Option<String>,
-    pub lit: Option<String>,
-    pub axis: Option<String>,
+pub(crate) struct Properties<'a> {
+    pub snowy: Option<&'a str>,
+    pub level: Option<&'a str>,
+    pub east: Option<&'a str>,
+    pub waterlogged: Option<&'a str>,
+    pub north: Option<&'a str>,
+    pub west: Option<&'a str>,
+    pub up: Option<&'a str>,
+    pub down: Option<&'a str>,
+    pub south: Option<&'a str>,
+    pub drag: Option<&'a str>,
+    pub lit: Option<&'a str>,
+    pub axis: Option<&'a str>,
 }
 
 #[apply(ChunkDerives)]
 #[derive(deepsize::DeepSizeOf)]
-pub(crate) struct Biomes {
-    pub palette: Vec<String>,
+pub(crate) struct Biomes<'a> {
+    pub palette: Vec<&'a str>,
 }
