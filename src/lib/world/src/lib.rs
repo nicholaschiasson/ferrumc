@@ -205,23 +205,32 @@ impl World {
                 exit(1);
             }
         };
-        
+
         let metadata = DBMetadata {
             compressor: compressor_string.to_string(),
             backend: backend_string.to_string(),
             world_format: Chunk::type_hash(),
         };
-        
+
         if PathBuf::from(&backend_path).join("META").exists() {
             tokio::fs::read(PathBuf::from(&backend_path).join("META"))
                 .await
                 .map(|data| {
-                    let decoded: DBMetadata = bitcode::decode(&data).unwrap();
-                    if decoded.compressor != metadata.compressor
-                        || decoded.backend != metadata.backend
-                        || decoded.world_format != metadata.world_format
-                    {
-                        error!("Database metadata does not match configuration. Please delete the database and try again.");
+                    let Ok(data) = ferrumc_storage::compressors::gzip::decompress_gzip(&data) else {
+                        error!("Could not decompress database metadata");
+                        exit(1);
+                    };
+                    if let Ok(decoded) = bitcode::decode::<DBMetadata>(&data) {
+                        if decoded.compressor != metadata.compressor
+                            || decoded.backend != metadata.backend
+                            || decoded.world_format != metadata.world_format
+                        {
+                            error!("Database metadata does not match configuration. Please delete the database and try again.");
+                            exit(1);
+                        }
+                    } else {
+                        error!("Could not decode database metadata. This probably means the DB's \
+                        metadata format has changed. Please delete the database and try again.");
                         exit(1);
                     }
                 })
@@ -230,7 +239,14 @@ impl World {
                     exit(1);
                 });
         } else {
-            match tokio::fs::write(PathBuf::from(&backend_path).join("META"), bitcode::encode(&metadata)).await {
+            let Ok(data) = ferrumc_storage::compressors::gzip::compress_gzip(
+                get_global_config().database.compression_level as u32,
+                &bitcode::encode(&metadata),
+            ) else {
+                error!("Could not compress database metadata");
+                exit(1);
+            };
+            match tokio::fs::write(PathBuf::from(&backend_path).join("META"), data).await {
                 Ok(_) => (),
                 Err(e) => {
                     error!("Could not store database metadate: {}", e);

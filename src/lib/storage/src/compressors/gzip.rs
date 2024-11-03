@@ -4,7 +4,7 @@ use flate2::Compression;
 use std::io::{Cursor, Read};
 use tracing::error;
 
-pub(crate) fn compress_gzip(level: u32, data: &[u8]) -> Result<Vec<u8>, StorageError> {
+pub fn compress_gzip(level: u32, data: &[u8]) -> Result<Vec<u8>, StorageError> {
     let mut encoder = GzEncoder::new(data, Compression::new(level));
     let mut compressed = Vec::new();
     encoder.read_to_end(&mut compressed).map_err(|e| {
@@ -13,7 +13,7 @@ pub(crate) fn compress_gzip(level: u32, data: &[u8]) -> Result<Vec<u8>, StorageE
     })?;
     Ok(compressed)
 }
-pub(crate) fn decompress_gzip(data: &[u8]) -> Result<Vec<u8>, StorageError> {
+pub fn decompress_gzip(data: &[u8]) -> Result<Vec<u8>, StorageError> {
     let mut decoder = GzDecoder::new(Cursor::new(data));
     let mut decompressed = Vec::new();
     decoder.read_to_end(&mut decompressed).map_err(|e| {

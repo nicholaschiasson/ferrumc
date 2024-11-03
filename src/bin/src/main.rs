@@ -33,11 +33,14 @@ async fn main() {
     println!("good day to ya. enjoy your time with ferrumc!");
     
     let cli_args = CLIArgs::parse();
+
+
+    // Should have this in a state struct
+    let mut world = World::new().await;
     
     if cli_args.import {
         // Import the world
         let config = get_global_config();
-        let mut world = World::new().await;
         let import_path = PathBuf::from(config.database.import_path.clone());
         let db_path = PathBuf::from(config.database.db_path.clone());
         if let Err(e) = world.import(import_path, db_path).await {
