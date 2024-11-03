@@ -6,8 +6,8 @@ use std::io::{Read, Write};
 use bitcode::{Decode, Encode};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::net_types::NetTypesError;
-
-#[derive(Debug, Encode, Decode)]
+use type_hash::TypeHash;
+#[derive(Debug, Encode, Decode, TypeHash)]
 pub struct VarInt {
     /// The value of the VarInt.
     pub val: i32,

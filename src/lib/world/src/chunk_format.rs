@@ -7,6 +7,7 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::io::Read;
 use vanilla_chunk_format::Palette;
+use type_hash::TypeHash;
 
 #[cfg(test)]
 const BLOCKSFILE: &[u8] = &[0];
@@ -34,7 +35,7 @@ lazy_static! {
         ID2BLOCK.iter().map(|(k, v)| (v.clone(), *k)).collect();
 }
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, TypeHash)]
 // This is a placeholder for the actual chunk format
 pub struct Chunk {
     pub x: i32,
@@ -43,14 +44,14 @@ pub struct Chunk {
     pub sections: Vec<Section>,
 }
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, TypeHash)]
 pub struct Section {
     pub y: i8,
     pub block_states: BlockStates,
     pub biome_data: Vec<i64>,
     pub biome_palette: Vec<String>,
 }
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, TypeHash)]
 pub struct BlockStates {
     pub bits_per_block: i8,
     pub non_air_blocks: i16,

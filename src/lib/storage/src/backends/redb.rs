@@ -14,7 +14,8 @@ pub struct RedbBackend {
 #[async_trait]
 impl DatabaseBackend for RedbBackend {
     async fn initialize(store_path: Option<PathBuf>) -> Result<Self, StorageError> {
-        if let Some(path) = store_path {
+        if let Some(mut path) = store_path {
+            path = path.join("data.db");
             let db = if path.exists() {
                 redb::Database::open(path)
                     .map_err(|e| StorageError::DatabaseInitError(e.to_string()))?

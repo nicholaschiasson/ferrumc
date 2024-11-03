@@ -30,6 +30,7 @@ bzip2 = { workspace = true }
 serde_json = { workspace = true }
 indicatif = { workspace = true }
 parking_lot = { workspace = true }
+type_hash = { workspace = true }
 
 [features]
 default = ["sled", "surrealkv", "redb"]

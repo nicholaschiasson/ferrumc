@@ -220,14 +220,14 @@ pub fn database_benchmarks(c: &mut Criterion) {
 
         read_group.finish();
 
-        temps.iter().for_each(|temp_dir| {
-            let res = match temp_dir.is_dir() {
-                true => std::fs::remove_dir_all(temp_dir),
-                false => std::fs::remove_file(temp_dir),
-            };
-            if let Err(e) = res {
-                eprintln!("Failed to remove temp dir: {}", e);
-            }
-        });
+        // temps.iter().for_each(|temp_dir| {
+        //     let res = match temp_dir.is_dir() {
+        //         true => std::fs::remove_dir_all(temp_dir),
+        //         false => std::fs::remove_file(temp_dir),
+        //     };
+        //     if let Err(e) = res {
+        //         eprintln!("Failed to remove temp dir: {}", e);
+        //     }
+        // });
     }
 }

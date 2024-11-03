@@ -10,9 +10,12 @@ use ferrumc_storage::DatabaseBackend;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::Arc;
+use bitcode_derive::{Decode, Encode};
 use tokio::fs::create_dir_all;
 use tracing::{error, info, warn};
+use type_hash::TypeHash;
 use ferrumc_config::statics::get_global_config;
+use crate::chunk_format::Chunk;
 
 #[derive(Clone)]
 pub struct World {
@@ -67,6 +70,12 @@ async fn check_config_validity() -> Result<(), WorldError> {
     }
     Ok(())
 }
+#[derive(Encode, Decode)]
+pub(crate) struct DBMetadata {
+    pub(crate) compressor: String,
+    pub(crate) backend: String,
+    pub(crate) world_format: u64,
+}
 
 impl World {
     /// Creates a new world instance.
@@ -88,7 +97,7 @@ impl World {
             "surrealkv" => {
                 #[cfg(feature = "surrealkv")]
                 match ferrumc_storage::backends::surrealkv::SurrealKVBackend::initialize(Some(
-                    PathBuf::from(backend_path),
+                    PathBuf::from(&backend_path),
                 ))
                 .await
                 {
@@ -104,7 +113,7 @@ impl World {
             "sled" => {
                 #[cfg(feature = "sled")]
                 match ferrumc_storage::backends::sled::SledBackend::initialize(Some(PathBuf::from(
-                    backend_path,
+                    &backend_path,
                 )))
                 .await
                 {
@@ -136,7 +145,7 @@ impl World {
             "redb" => {
                 #[cfg(feature = "redb")]
                 match ferrumc_storage::backends::redb::RedbBackend::initialize(Some(PathBuf::from(
-                    backend_path,
+                    &backend_path,
                 )))
                 .await
                 {
@@ -196,6 +205,39 @@ impl World {
                 exit(1);
             }
         };
+        
+        let metadata = DBMetadata {
+            compressor: compressor_string.to_string(),
+            backend: backend_string.to_string(),
+            world_format: Chunk::type_hash(),
+        };
+        
+        if PathBuf::from(&backend_path).join("META").exists() {
+            tokio::fs::read(PathBuf::from(&backend_path).join("META"))
+                .await
+                .map(|data| {
+                    let decoded: DBMetadata = bitcode::decode(&data).unwrap();
+                    if decoded.compressor != metadata.compressor
+                        || decoded.backend != metadata.backend
+                        || decoded.world_format != metadata.world_format
+                    {
+                        error!("Database metadata does not match configuration. Please delete the database and try again.");
+                        exit(1);
+                    }
+                })
+                .unwrap_or_else(|e| {
+                    error!("Could not read database metadata: {}", e);
+                    exit(1);
+                });
+        } else {
+            match tokio::fs::write(PathBuf::from(&backend_path).join("META"), bitcode::encode(&metadata)).await {
+                Ok(_) => (),
+                Err(e) => {
+                    error!("Could not store database metadate: {}", e);
+                    exit(1);
+                }
+            }
+        }
 
         World {
             storage_backend: Arc::new(storage_backend),

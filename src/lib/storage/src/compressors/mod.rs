@@ -50,4 +50,14 @@ impl Compressor {
             CompressorType::Zlib => decompress_zlib(data),
         }
     }
+    
+    pub fn get_name(&self) -> String {
+        match self.algorithm {
+            CompressorType::Gzip => "gzip".to_string(),
+            CompressorType::Zstd => "zstd".to_string(),
+            CompressorType::Brotli => "brotli".to_string(),
+            CompressorType::Deflate => "deflate".to_string(),
+            CompressorType::Zlib => "zlib".to_string(),
+        }
+    }
 }
