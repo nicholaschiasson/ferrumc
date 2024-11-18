@@ -137,6 +137,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.93"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c95c10ba0b00a02636238b814946408b1322d5ac4760326e6fb8ec956d85775"
+dependencies = [
+ "backtrace",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -253,6 +262,15 @@ name = "bitflags"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
+
+[[package]]
+name = "block-buffer"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
+dependencies = [
+ "generic-array",
+]
 
 [[package]]
 name = "brotli"
@@ -631,6 +649,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
+name = "crypto-common"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3"
+dependencies = [
+ "generic-array",
+ "typenum",
+]
+
+[[package]]
 name = "ctor"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -698,6 +726,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
+]
+
+[[package]]
+name = "digest"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
+dependencies = [
+ "block-buffer",
+ "crypto-common",
 ]
 
 [[package]]
@@ -940,6 +978,7 @@ dependencies = [
  "tokio",
  "tracing",
  "ussr-nbt",
+ "uuid",
 ]
 
 [[package]]
@@ -956,6 +995,7 @@ dependencies = [
  "ferrumc-nbt",
  "ferrumc-net-codec",
  "ferrumc-net-encryption",
+ "ferrumc-text",
  "flate2",
  "futures",
  "parking_lot 0.12.3",
@@ -1056,6 +1096,24 @@ dependencies = [
  "flate2",
  "maplit",
  "tokio",
+]
+
+[[package]]
+name = "ferrumc-text"
+version = "0.1.0"
+dependencies = [
+ "ferrumc-config",
+ "ferrumc-macros",
+ "ferrumc-nbt",
+ "ferrumc-net-codec",
+ "flate2",
+ "paste",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "uuid",
+ "valence_text",
 ]
 
 [[package]]
@@ -1239,6 +1297,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
 dependencies = [
  "byteorder",
+]
+
+[[package]]
+name = "generic-array"
+version = "0.14.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
+dependencies = [
+ "typenum",
+ "version_check",
 ]
 
 [[package]]
@@ -1628,6 +1696,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
 dependencies = [
  "regex-automata 0.1.10",
+]
+
+[[package]]
+name = "md-5"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
+dependencies = [
+ "cfg-if",
+ "digest",
 ]
 
 [[package]]
@@ -2270,7 +2348,7 @@ dependencies = [
  "simd_cesu8",
  "simdnbt-derive",
  "thiserror",
- "valence_nbt",
+ "valence_nbt 0.8.0",
 ]
 
 [[package]]
@@ -2584,6 +2662,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "typenum"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2628,6 +2712,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8c5f0a0af699448548ad1a2fbf920fb4bee257eae39953ba95cb84891a0446a"
 dependencies = [
  "getrandom",
+ "md-5",
+ "serde",
+]
+
+[[package]]
+name = "valence_ident"
+version = "0.2.0-alpha.1+mc.1.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c75f5991893b0661e27e1f7f51b88a72c68a7aee46dc8ab50710cfa86167bd0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "valence_ident_macros",
+]
+
+[[package]]
+name = "valence_ident_macros"
+version = "0.2.0-alpha.1+mc.1.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e0f21404a1d14bb4c99c41355bf14b527b0116e69adbc06b91b4a9c1e61bd38"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "valence_nbt"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30d8921a6ebbb93ddbcd0e152611bd94fb928199efe8528077ab36787b298be4"
+dependencies = [
+ "uuid",
 ]
 
 [[package]]
@@ -2638,6 +2755,21 @@ checksum = "c3cddc3222ed5ead4fa446881b3deeeee0dba60b0088b2bf12fedbac7eda2312"
 dependencies = [
  "byteorder",
  "cesu8",
+]
+
+[[package]]
+name = "valence_text"
+version = "0.2.0-alpha.1+mc.1.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81d2d372465d6333fc5b73a5abb4f487bf36568860415462cc9cb5eb88f32eb5"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+ "valence_ident",
+ "valence_nbt 0.6.1",
 ]
 
 [[package]]
